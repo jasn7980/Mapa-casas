@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mapa de búsqueda de casas — Montréal y área metropolitana</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; color: #1f2937; background: #f3f4f6; }
+  header { padding: 14px 18px; background: #111827; color: #fff; }
+  header h1 { margin: 0 0 4px; font-size: 20px; }
+  header p { margin: 0; font-size: 13px; color: #d1d5db; }
+  .toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 10px 18px; background: #fff; border-bottom: 1px solid #e5e7eb; }
+  .toolbar button { border: 1px solid #d1d5db; background: #fff; border-radius: 999px; padding: 6px 12px; cursor: pointer; font-size: 13px; }
+  .toolbar button.active { background: #111827; color: #fff; border-color: #111827; }
+  .toolbar .legend { margin-left: auto; display: flex; gap: 14px; font-size: 13px; }
+  .dot { display: inline-block; width: 12px; height: 12px; border-radius: 50%; border: 2px solid #fff; box-shadow: 0 0 0 1px #9ca3af; vertical-align: middle; margin-right: 4px; }
+  .main { display: flex; height: calc(100vh - 130px); min-height: 520px; }
+  #map { flex: 1; min-width: 0; }
+  aside { width: 380px; background: #fff; border-left: 1px solid #e5e7eb; display: flex; flex-direction: column; }
+  #list { overflow-y: auto; border-bottom: 1px solid #e5e7eb; max-height: 45%; }
+  .card { padding: 10px 14px; border-bottom: 1px solid #f3f4f6; cursor: pointer; }
+  .card:hover { background: #f9fafb; }
+  .card.selected { background: #eff6ff; }
+  .card .price { font-weight: 700; font-size: 15px; }
+  .card .addr { font-size: 13px; color: #4b5563; }
+  #ficha { overflow-y: auto; padding: 14px; }
+  #ficha h2 { margin: 0 0 2px; font-size: 17px; }
+  #ficha .sector { color: #6b7280; font-size: 13px; margin-bottom: 10px; }
+  #ficha dl { margin: 0; font-size: 14px; }
+  #ficha dt { float: left; clear: left; color: #6b7280; margin-right: 6px; }
+  #ficha dd { margin: 0 0 6px; }
+  #ficha .note { background: #fef9c3; border-radius: 8px; padding: 8px 10px; font-size: 13px; margin: 10px 0; }
+  .btn { display: inline-block; margin-top: 10px; background: #16a34a; color: #fff; text-decoration: none; padding: 8px 14px; border-radius: 8px; font-size: 14px; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th, td { text-align: left; padding: 8px 12px; border-bottom: 1px solid #e5e7eb; }
+  .compare { padding: 14px 18px 30px; background: #fff; }
+  .compare h2 { font-size: 17px; margin: 0 0 8px; }
+  .pin { display: flex; align-items: center; gap: 4px; }
+  .pin i { width: 18px; height: 18px; border-radius: 50%; background: var(--c); border: 2px solid #fff; box-shadow: 0 1px 4px rgba(0,0,0,.5); display: block; }
+  .pin span { background: #111827; color: #fff; font-size: 11px; padding: 2px 6px; border-radius: 999px; white-space: nowrap; }
+  @media (max-width: 800px) {
+    .main { flex-direction: column; height: auto; }
+    #map { height: 60vh; }
+    aside { width: 100%; }
+    .toolbar .legend { margin-left: 0; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>Mapa de búsqueda de casas</h1>
+  <p>Montréal y área metropolitana — de Brossard / Longueuil al sur hasta Deux-Montagnes al norte. Toca un pin o una tarjeta para ver su ficha completa.</p>
+</header>
+<div class="toolbar">
+  <button data-filter="all" class="active">Todos</button>
+  <button data-filter="condo">🔵 Condo en edificio</button>
+  <button data-filter="ville">🔴 Maison de ville</button>
+  <button data-filter="independiente">🟠 Casa independiente</button>
+  <button id="fitBtn">Ver todas</button>
+  <button id="metroBtn">Vista metro</button>
+  <span class="legend">
+    <span><i class="dot" style="background:#2563eb"></i>Condo</span>
+    <span><i class="dot" style="background:#dc2626"></i>Ville</span>
+    <span><i class="dot" style="background:#ea580c"></i>Independiente</span>
+  </span>
+</div>
+<div class="main">
+  <div id="map"></div>
+  <aside>
+    <div id="list"></div>
+    <div id="ficha"><p style="color:#6b7280">Elige una propiedad para ver su ficha.</p></div>
+  </aside>
+</div>
+<div class="compare">
+  <h2>Comparativa por $ / pi² habitable</h2>
+  <table>
+    <thead><tr><th>Propiedad</th><th>Precio</th><th>Sup. habitable</th><th>$/pi²</th><th>Terreno</th></tr></thead>
+    <tbody id="compareBody"></tbody>
+  </table>
+</div>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+const PROPS = [
+  { id: "workman", name: "2738 Rue Workman", sector: "Petite-Bourgogne, Le Sud-Ouest, Montréal", cat: "independiente",
+    lat: 45.48194, lng: -73.57783, price: 1250000, priceNote: "",
+    beds: "3 + 1 (sótano)", baths: "1 baño + 2 medios", rooms: 10, living: 1359.48, lot: 1600.59, year: 1986,
+    taxes: "$7,257 / año (municipal 2026 $6,468 + escolar 2025 $789)", assessment: "$1,049,000 (2024)",
+    welcome: "≈ $21,076", perPi2: 920,
+    broker: "Sergue Svergoun, RE/MAX Action — 514 700-1900", uls: "ULS 26805982",
+    photos: "https://media.remax-quebec.com/inscription/PDF/26805982_en_photos.pdf", photosLabel: "Ver fotos — RE/MAX",
+    note: "Casa fotografiada por Jaime el 17 sep 2026. Garaje integrado + entrada (2 estacionamientos), chimenea a gas, spa en el patio. Incluye spa, estufa a gas y refrigerador." },
+  { id: "ave45", name: "1585, 45e Avenue", sector: "Laval-Ouest, Laval", cat: "independiente",
+    lat: 45.55503, lng: -73.87202, price: 1199000, priceNote: "Listado más reciente: $1,189,000 (posible rebaja)",
+    beds: "4 (1 en sótano)", baths: "2 baños + 2 medios", rooms: 16, living: null, lot: 5998, year: 2024,
+    taxes: "No emitidos (construcción nueva)", assessment: "$870,900 (2023)",
+    welcome: "—", perPi2: null,
+    broker: "Centris 9134776", uls: "",
+    photos: "https://www.centris.ca/fr/maison~a-vendre~laval-laval-ouest/9134776", photosLabel: "Ver en Centris",
+    note: "Construcción nueva 2024. Termobomba, sistema de alarma, sótano terminado, garaje + 2 en entrada." },
+  { id: "olier", name: "1050, Avenue Olier-Payette", sector: "Sainte-Rose, Laval", cat: "independiente",
+    lat: 45.62269, lng: -73.77394, price: 998000, priceNote: "",
+    beds: "4 (1 en sótano)", baths: "2 baños + 1 medio", rooms: 11, living: null, lot: 7069, year: 1992,
+    taxes: "$4,872 (2026)", assessment: "$753,400 (2023)",
+    welcome: "—", perPi2: null,
+    broker: "Centris 21686888", uls: "",
+    photos: "https://www.centris.ca/fr/maison~a-vendre~laval-sainte-rose/21686888?nocontext=true", photosLabel: "Ver en Centris",
+    note: "Piscina enterrada, garaje doble, entrada para 4 autos. Patio íntimo sin vecinos atrás, junto a un boisé." },
+  { id: "duvernay", name: "Domaine des 4 Vents (casa modelo)", sector: "Duvernay Est, Laval", cat: "ville",
+    lat: 45.66871, lng: -73.59235, price: 632804, priceNote: "+ TPS/TVQ (≈ $727,600 con impuestos)",
+    beds: "3", baths: "1 baño + 1 medio", rooms: 12, living: 1611, lot: 1541, year: "Nueva",
+    taxes: "—", assessment: "—",
+    welcome: "—", perPi2: 452,
+    broker: "Dany Leclaire, RE/MAX Platine — 514 795-1902", uls: "ULS 23651741 (unidad ejemplo)",
+    photos: "https://www.groupemenard.ca/maisons-de-ville-neuves-duvernay-est-4-vents/", photosLabel: "Ver proyecto",
+    note: "Casas de ciudad de 3 pisos, sin gastos de condominio. Proyecto desde $589,447 + impuestos; fase 5 entrega ene 2027. El pin está en la casa modelo: 7868 rue Leonise Valois. Terreno de la unidad ejemplo: 1,541 pi² (otras desde 2,318 pi²)." },
+  { id: "armand", name: "1255, rue Armand-Auclair", sector: "Sainte-Rose, Laval", cat: "independiente",
+    lat: 45.6193, lng: -73.77682, price: 769999, priceNote: "",
+    beds: "4", baths: "2 baños + 1 medio", rooms: null, living: 1629, lot: 3350, year: 1993,
+    taxes: "$3,715 / año", assessment: "$600,000",
+    welcome: "—", perPi2: 473,
+    broker: "DuProprio #973877", uls: "",
+    photos: "https://duproprio.com/fr/laval/ste-rose/maison-a-vendre/hab-1255-rue-armand-auclair-973877", photosLabel: "Ver en DuProprio",
+    note: "Renovada (cocina, ventanas, baños, sótano, techo). Sótano con bachelor: $12,000/año de renta potencial. Visita libre dom 1 nov, 12:00–4:00 PM." },
+  { id: "monnier", name: "6825, rue Monnier", sector: "Laval-Ouest, Laval", cat: "independiente",
+    lat: 45.54735, lng: -73.86186, price: 849000, priceNote: "",
+    beds: "4", baths: "2 baños", rooms: null, living: 1445, lot: 4300, year: 1991,
+    taxes: "—", assessment: "—",
+    welcome: "—", perPi2: 588,
+    broker: "DuProprio #742986", uls: "",
+    photos: "https://duproprio.com/fr/laval/laval-ouest/maison-a-vendre/hab-6825-rue-monnier-742986", photosLabel: "Ver en DuProprio",
+    note: "Renovada (cocina, baños, sótano, techo, plomería). Con spa, garaje integrado." }
+];
+const COLORS = { condo: "#2563eb", ville: "#dc2626", independiente: "#ea580c" };
+const CATNAME = { condo: "Condo en edificio", ville: "Maison de ville", independiente: "Casa independiente" };
+const money = n => "$" + n.toLocaleString("en-CA");
+const fmt = n => (n === null || n === undefined) ? "—" : n.toLocaleString("en-CA");
+const map = L.map("map").setView([45.56, -73.72], 10);
+L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+  maxZoom: 19, attribution: "&copy; OpenStreetMap contributors"
+}).addTo(map);
+const markers = {};
+let currentFilter = "all";
+
+function shortPrice(n) {
+  if (n >= 1000000) return "$" + (n / 1000000).toFixed(2).replace(/\.?0+$/, "") + "M";
+  return "$" + Math.round(n / 1000) + "k";
+}
+function pinIcon(p) {
+  return L.divIcon({ className: "", iconSize: [26, 26], iconAnchor: [13, 13],
+    html: `<div class="pin" style="--c:${COLORS[p.cat]}"><i></i><span>${shortPrice(p.price)}</span></div>` });
+}
+PROPS.forEach(p => {
+  const m = L.marker([p.lat, p.lng], { icon: pinIcon(p) }).addTo(map);
+  m.on("click", () => selectProp(p.id));
+  markers[p.id] = m;
+});
+const listEl = document.getElementById("list");
+const fichaEl = document.getElementById("ficha");
+function renderList() {
+  listEl.innerHTML = "";
+  PROPS.filter(p => currentFilter === "all" || p.cat === currentFilter).forEach(p => {
+    const d = document.createElement("div");
+    d.className = "card" + (p.id === selectedId ? " selected" : "");
+    d.innerHTML = `<div class="price"><i class="dot" style="background:${COLORS[p.cat]}"></i>${money(p.price)}${p.priceNote ? " *" : ""}</div><div class="addr">${p.name} — ${p.sector}</div>`;
+    d.onclick = () => { selectProp(p.id); map.setView([p.lat, p.lng], 13); };
+    listEl.appendChild(d);
+  });
+}
+function row(label, value) {
+  return value === "—" || value === "" || value == null ? "" : `<dt>${label}</dt><dd>${value}</dd>`;
+}
+let selectedId = null;
+function selectProp(id) {
+  selectedId = id;
+  const p = PROPS.find(x => x.id === id);
+  renderList();
+  fichaEl.innerHTML = `
+    <h2>${p.name}</h2>
+    <div class="sector">${CATNAME[p.cat]} · ${p.sector}</div>
+    <dl>
+      ${row("Precio", money(p.price) + (p.priceNote ? " (" + p.priceNote + ")" : ""))}
+      ${row("Recámaras", p.beds)}
+      ${row("Baños", p.baths)}
+      ${row("Habitaciones", p.rooms)}
+      ${row("Sup. habitable", p.living ? fmt(p.living) + " pi²" : "—")}
+      ${row("Terreno", fmt(p.lot) + " pi²")}
+      ${row("Año", p.year)}
+      ${row("Impuestos", p.taxes)}
+      ${row("Avalúo municipal", p.assessment)}
+      ${row("Taxe de bienvenue (est.)", p.welcome)}
+      ${row("$/pi² habitable", p.perPi2 ? "≈ $" + p.perPi2 : "—")}
+      ${row("Corredor / fuente", p.broker)}
+      ${row("Ficha", p.uls)}
+    </dl>
+    ${p.note ? `<div class="note">${p.note}</div>` : ""}
+    <a class="btn" href="${p.photos}" target="_blank" rel="noopener">Ver fotos</a>`;
+}
+document.querySelectorAll(".toolbar button[data-filter]").forEach(b => {
+  b.onclick = () => {
+    document.querySelectorAll(".toolbar button[data-filter]").forEach(x => x.classList.remove("active"));
+    b.classList.add("active");
+    currentFilter = b.dataset.filter;
+    PROPS.forEach(p => {
+      const show = currentFilter === "all" || p.cat === currentFilter;
+      if (show) markers[p.id].addTo(map); else map.removeLayer(markers[p.id]);
+    });
+    renderList();
+  };
+});
+document.getElementById("fitBtn").onclick = () => {
+  map.fitBounds(PROPS.map(p => [p.lat, p.lng]), { padding: [40, 40] });
+};
+document.getElementById("metroBtn").onclick = () => { map.setView([45.56, -73.72], 10); };
+const comp = [...PROPS].sort((a, b) => (a.perPi2 ?? 1e9) - (b.perPi2 ?? 1e9));
+document.getElementById("compareBody").innerHTML = comp.map(p =>
+  `<tr><td>${p.name} (${p.sector})</td><td>${money(p.price)}</td><td>${p.living ? fmt(p.living) + " pi²" : "—"}</td><td>${p.perPi2 ? "≈ $" + p.perPi2 : "—"}</td><td>${fmt(p.lot)} pi²</td></tr>`
+).join("");
+renderList();
+selectProp("workman");
+</script>
+</body>
+</html>
