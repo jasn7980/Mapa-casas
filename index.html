@@ -42,6 +42,8 @@
   .pin span { background: #111827; color: #fff; font-size: 11px; padding: 2px 6px; border-radius: 999px; white-space: nowrap; }
   .pin.sel i { width: 26px; height: 26px; box-shadow: 0 0 0 3px #fff, 0 0 0 6px var(--c), 0 1px 6px rgba(0,0,0,.5); }
   .pin.sel span { background: var(--c); }
+  .stn { display: flex; align-items: center; justify-content: center; width: 20px; height: 20px; background: #fff; border: 2px solid #111827; border-radius: 6px; font-size: 11px; font-weight: 700; color: #111827; }
+  .stn-mini { display: inline-flex; align-items: center; justify-content: center; width: 16px; height: 16px; background: #fff; border: 2px solid #111827; border-radius: 4px; font-size: 10px; font-weight: 700; color: #111827; font-style: normal; margin-right: 4px; vertical-align: middle; }
   .pinrow { display: flex; align-items: center; gap: 6px; margin-bottom: 3px; }
   .dot.big { width: 16px; height: 16px; }
   .catname { font-size: 12px; color: #6b7280; }
@@ -68,10 +70,12 @@
   <button data-filter="independiente">🟠 Casa independiente</button>
   <button id="fitBtn">Ver todas</button>
   <button id="metroBtn">Vista metro</button>
+  <button id="transitBtn" class="active" title="Mostrar u ocultar estaciones de metro, REM y tren">🚇 Transporte</button>
   <span class="legend">
     <span><i class="dot" style="background:#2563eb"></i>Condo</span>
     <span><i class="dot" style="background:#dc2626"></i>Ville</span>
     <span><i class="dot" style="background:#ea580c"></i>Independiente</span>
+    <span><i class="stn-mini">M</i>Metro / REM / Tren</span>
   </span>
 </div>
 <div class="main">
@@ -144,6 +148,139 @@ const COLORS = { condo: "#2563eb", ville: "#dc2626", independiente: "#ea580c" };
 const CATNAME = { condo: "Condo en edificio", ville: "Maison de ville", independiente: "Casa independiente" };
 const money = n => "$" + n.toLocaleString("en-CA");
 const fmt = n => (n === null || n === undefined) ? "—" : n.toLocaleString("en-CA");
+const STATIONS = [
+["Acadie",45.52322,-73.62375,"Métro"],
+["Angrignon",45.44618,-73.60365,"Métro"],
+["Anjou",45.61828,-73.59617,"Train exo · Train VIA"],
+["Anse-à-l'Orme",45.43159,-73.90991,"REM"],
+["Assomption",45.56939,-73.54673,"Métro"],
+["Atwater",45.48968,-73.58631,"Métro"],
+["Baie-d'Urfé",45.41987,-73.91561,"Train exo"],
+["Beaconsfield",45.4348,-73.84813,"Train exo"],
+["Beaubien",45.53517,-73.60496,"Métro"],
+["Beaudry",45.51955,-73.55717,"Métro"],
+["Beaurepaire",45.42741,-73.88707,"Train exo"],
+["Berri-UQAM",45.51511,-73.56108,"Métro"],
+["Blainville",45.67218,-73.86583,"Train exo"],
+["Bois-Franc",45.52203,-73.7125,"REM"],
+["Bois-de-Boulogne",45.54007,-73.67585,"Train exo"],
+["Bonaventure",45.49819,-73.56696,"Métro"],
+["Brossard",45.43806,-73.43058,"REM"],
+["Cadillac",45.57684,-73.5467,"Métro"],
+["Candiac",45.36061,-73.51481,"Train exo"],
+["Canora",45.51375,-73.63388,"REM"],
+["Cartier",45.56023,-73.6818,"Métro"],
+["Cedar Park",45.4424,-73.81991,"Train exo"],
+["Chabanel",45.53687,-73.65725,"Train exo"],
+["Champ-de-Mars",45.51014,-73.55649,"Métro"],
+["Charlevoix",45.47825,-73.56937,"Métro"],
+["Crémazie",45.54614,-73.63884,"Métro"],
+["Côte-Sainte-Catherine",45.49237,-73.63286,"Métro"],
+["Côte-Vertu",45.51429,-73.68328,"Métro"],
+["Côte-de-Liesse",45.52182,-73.66187,"REM"],
+["Côte-des-Neiges",45.49665,-73.62349,"Métro"],
+["De Castelnau",45.53526,-73.62011,"Métro"],
+["De La Savane",45.50038,-73.6616,"Métro"],
+["De l'Église",45.46269,-73.56701,"Métro"],
+["De la Concorde",45.56015,-73.70982,"Métro · Train exo"],
+["Delson",45.36681,-73.54082,"Train exo"],
+["Des Sources",45.47711,-73.79111,"REM"],
+["Deux-Montagnes",45.54568,-73.91241,"REM"],
+["Dorion",45.38639,-74.00848,"Train exo"],
+["Dorval",45.4492,-73.74352,"Train VIA · Train exo"],
+["Du Canal",45.43763,-73.65595,"Train exo"],
+["Du Collège",45.50846,-73.67283,"Métro"],
+["Du Quartier",45.44669,-73.43331,"REM"],
+["Du Ruisseau",45.52892,-73.69038,"REM"],
+["D’Iberville",45.5526,-73.6027,"Métro"],
+["Fabre",45.54675,-73.6078,"Métro"],
+["Fairview-Pointe-Claire",45.45995,-73.83533,"REM"],
+["Frontenac",45.53315,-73.55222,"Métro"],
+["Gare Centrale",45.49993,-73.56669,"REM · Train VIA · Train exo"],
+["Gare de Saint-Lambert",45.49903,-73.50742,"Train exo · Train VIA"],
+["Georges-Vanier",45.48895,-73.57646,"Métro"],
+["Grand-Moulin",45.53725,-73.88788,"REM"],
+["Guy-Concordia",45.49537,-73.57984,"Métro"],
+["Henri-Bourassa",45.55451,-73.66825,"Métro"],
+["Honoré-Beaugrand",45.59641,-73.53544,"Métro"],
+["Jarry",45.54322,-73.6286,"Métro"],
+["Jean-Drapeau",45.51245,-73.53313,"Métro"],
+["Jean-Talon",45.53918,-73.61342,"Métro"],
+["Jolicoeur",45.45686,-73.582,"Métro"],
+["Joliette",45.54693,-73.55101,"Métro"],
+["Kirkland",45.44031,-73.88561,"REM"],
+["LaSalle",45.4257,-73.65679,"Train exo"],
+["LaSalle",45.47081,-73.56613,"Métro"],
+["Lachine",45.44867,-73.71119,"Train exo"],
+["Langelier",45.58273,-73.54316,"Métro"],
+["Laurier",45.52808,-73.58838,"Métro"],
+["Longueuil–Saint-Hubert",45.50801,-73.43517,"Train exo"],
+["Longueuil–Université-de-Sherbrooke",45.52493,-73.52193,"Métro"],
+["Lucien-L'Allier",45.49501,-73.57095,"Métro"],
+["Mascouche",45.7296,-73.59832,"Train exo"],
+["McGill",45.50409,-73.57157,"Métro · REM"],
+["Mirabel",45.71215,-73.91916,"Train exo"],
+["Monk",45.45104,-73.5932,"Métro"],
+["Mont-Royal",45.5246,-73.58165,"Métro"],
+["Montmorency",45.55835,-73.72152,"Métro"],
+["Montpellier",45.5248,-73.67222,"REM"],
+["Montréal-Ouest",45.4536,-73.64188,"Train exo"],
+["Namur",45.49493,-73.65291,"Métro"],
+["Outremont",45.52011,-73.61489,"Métro"],
+["Panama",45.46496,-73.47036,"REM"],
+["Papineau",45.52374,-73.55217,"Métro"],
+["Parc",45.53164,-73.62467,"Métro · Train exo"],
+["Peel",45.50061,-73.57509,"Métro"],
+["Pie IX",45.5542,-73.55153,"Métro"],
+["Pierrefonds-Roxboro",45.5102,-73.81163,"REM"],
+["Pincourt–Terrasse-Vaudreuil",45.38716,-73.99175,"Train exo"],
+["Pine Beach",45.4496,-73.76416,"Train exo"],
+["Place Saint-Henri",45.47739,-73.58638,"Métro"],
+["Place d’Armes",45.50609,-73.55961,"Métro"],
+["Place-des-Arts",45.50803,-73.56832,"Métro"],
+["Plamondon",45.49437,-73.63793,"Métro"],
+["Pointe-Claire",45.44736,-73.80304,"Train exo"],
+["Pointe-aux-Trembles",45.67473,-73.50623,"Train exo"],
+["Préfontaine",45.54173,-73.55424,"Métro"],
+["Radisson",45.58965,-73.53979,"Métro"],
+["Repentigny",45.7357,-73.48597,"Train exo"],
+["Rivière-des-Prairies",45.66123,-73.53823,"Train exo"],
+["Rosemont",45.5315,-73.59734,"Métro"],
+["Rosemère",45.63457,-73.7959,"Train exo"],
+["Saint-Basile-le-Grand",45.52328,-73.30591,"Train exo"],
+["Saint-Bruno",45.51199,-73.37449,"Train exo"],
+["Saint-Constant",45.37386,-73.56998,"Train exo"],
+["Saint-Jérôme",45.77316,-73.99909,"Train exo"],
+["Saint-Laurent",45.51088,-73.56481,"Métro"],
+["Saint-Léonard–Montréal-Nord",45.59978,-73.61621,"Train exo"],
+["Saint-Michel",45.55975,-73.59996,"Métro"],
+["Saint-Michel–Montréal-Nord",45.58281,-73.63045,"Train exo"],
+["Sainte-Anne-de-Bellevue",45.40776,-73.9508,"Train exo"],
+["Sainte-Catherine",45.38204,-73.60004,"Train exo"],
+["Sainte-Dorothée",45.52346,-73.86247,"REM"],
+["Sainte-Rose",45.62528,-73.76442,"Train exo"],
+["Sainte-Thérèse",45.63598,-73.83412,"Train exo"],
+["Sauvé",45.54938,-73.65435,"Métro · Train VIA · Train exo"],
+["Sherbrooke",45.51872,-73.56805,"Métro"],
+["Snowdon",45.48567,-73.62835,"Métro"],
+["Square-Victoria-OACI",45.50209,-73.56311,"Métro"],
+["Station Lionel-Groulx",45.48231,-73.58047,"Métro"],
+["Sunnybrooke",45.50384,-73.7857,"REM"],
+["Université-de-Montréal",45.50344,-73.61758,"Métro"],
+["Valois",45.44972,-73.79102,"Train exo"],
+["Vaudreuil",45.39941,-74.05148,"Train exo"],
+["Vendôme",45.47355,-73.6035,"Métro · Train exo"],
+["Verdun",45.45929,-73.57201,"Métro"],
+["Viau",45.56111,-73.54731,"Métro"],
+["Villa-Maria",45.47976,-73.61976,"Métro"],
+["Ville-de-Mont-Royal",45.51651,-73.64345,"REM"],
+["Vimont",45.6038,-73.74271,"Train exo"],
+["Édouard-Montpetit",45.51013,-73.61253,"Métro · REM"],
+["Île-Bigras",45.51991,-73.85295,"REM"],
+["Île-Perrot",45.39613,-73.96517,"Train exo"],
+["Île-des-Soeurs",45.47033,-73.5389,"REM"]
+];
+
 const map = L.map("map").setView([45.56, -73.72], 10);
 L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
   maxZoom: 19, attribution: "&copy; OpenStreetMap contributors"
@@ -166,6 +303,19 @@ PROPS.forEach(p => {
   m.on("click", () => selectProp(p.id, false));
   markers[p.id] = m;
 });
+const transitLayer = L.layerGroup();
+STATIONS.forEach(s => {
+  const letter = s[3].includes("Métro") ? "M" : s[3].includes("REM") ? "R" : "T";
+  const m = L.marker([s[1], s[2]], { icon: L.divIcon({ className: "", iconSize: [22, 22], iconAnchor: [11, 11], html: `<div class="stn">${letter}</div>` }) });
+  m.bindPopup(`<b>${s[0]}</b><br>${s[3]}`);
+  m.addTo(transitLayer);
+});
+transitLayer.addTo(map);
+document.getElementById("transitBtn").onclick = (e) => {
+  const btn = e.currentTarget;
+  if (map.hasLayer(transitLayer)) { map.removeLayer(transitLayer); btn.classList.remove("active"); }
+  else { transitLayer.addTo(map); btn.classList.add("active"); }
+};
 const listEl = document.getElementById("list");
 const fichaEl = document.getElementById("ficha");
 function renderList() {
