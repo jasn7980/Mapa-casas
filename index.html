@@ -97,8 +97,8 @@ const PROPS = [
     taxes: "$7,257 / año (municipal 2026 $6,468 + escolar 2025 $789)", assessment: "$1,049,000 (2024)",
     welcome: "≈ $21,076", perPi2: 920,
     broker: "Sergue Svergoun, RE/MAX Action — 514 700-1900", uls: "ULS 26805982",
-    photos: "https://media.remax-quebec.com/inscription/PDF/26805982_en_photos.pdf", photosLabel: "Ver fotos — RE/MAX",
-    note: "Casa fotografiada por Jaime el 17 sep 2026. Garaje integrado + entrada (2 estacionamientos), chimenea a gas, spa en el patio. Incluye spa, estufa a gas y refrigerador." },
+    photos: "https://www.google.com/maps/search/?api=1&query=2738%20Rue%20Workman%2C%20Montr%C3%A9al%2C%20QC%20H3J%202S7", photosLabel: "Ver en Street View",
+    note: "⚠️ Publicación original ya no vigente (verificado 28 oct 2026): RE/MAX retiró la ficha y las fotos, por eso la liga anterior ya no abre. Datos de la publicación original. Casa fotografiada por Jaime el 17 sep 2026. Garaje integrado + entrada (2 estacionamientos), chimenea a gas, spa en el patio. Incluye spa, estufa a gas y refrigerador." },
   { id: "ave45", name: "1585, 45e Avenue", sector: "Laval-Ouest, Laval", cat: "independiente",
     lat: 45.55503, lng: -73.87202, price: 1199000, priceNote: "Listado más reciente: $1,189,000 (posible rebaja)",
     beds: "4 (1 en sótano)", baths: "2 baños + 2 medios", rooms: 16, living: null, lot: 5998, year: 2024,
@@ -215,7 +215,7 @@ function selectProp(id, pan) {
       ${row("Ficha", p.uls)}
     </dl>
     ${p.note ? `<div class="note">${p.note}</div>` : ""}
-    <a class="btn" href="${p.photos}" target="_blank" rel="noopener">Ver fotos</a>`;
+    <a class="btn" href="${p.photos}" target="_blank" rel="noopener">${p.photosLabel || "Ver fotos"}</a>`;
 }
 document.querySelectorAll(".toolbar button[data-filter]").forEach(b => {
   b.onclick = () => {
