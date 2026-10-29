@@ -68,6 +68,7 @@
   <button data-filter="condo">🔵 Condo en edificio</button>
   <button data-filter="ville">🔴 Maison de ville</button>
   <button data-filter="independiente">🟠 Casa independiente</button>
+  <button data-filter="renta">🟢 Renta</button>
   <button id="fitBtn">Ver todas</button>
   <button id="metroBtn">Vista metro</button>
   <button id="transitBtn" class="active" title="Mostrar u ocultar estaciones de metro, REM y tren">🚇 Transporte</button>
@@ -75,8 +76,10 @@
     <span><i class="dot" style="background:#2563eb"></i>Condo</span>
     <span><i class="dot" style="background:#dc2626"></i>Ville</span>
     <span><i class="dot" style="background:#ea580c"></i>Independiente</span>
+    <span><i class="dot" style="background:#16a34a"></i>Renta</span>
     <span><i class="stn-mini">M</i>Metro / REM / Tren</span>
   </span>
+  <span id="dataSrc" style="color:#6b7280;font-size:12px">Datos: incrustados</span>
 </div>
 <div class="main">
   <div id="map"></div>
@@ -93,6 +96,7 @@
   </table>
 </div>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script>
 const PROPS = [
   { id: "workman", name: "2738 Rue Workman", sector: "Petite-Bourgogne, Le Sud-Ouest, Montréal", cat: "independiente",
@@ -152,8 +156,9 @@ const PROPS = [
     photos: "https://www.centris.ca/fr/maison~a-vendre~laval-sainte-rose/20538047", photosLabel: "Ver en Centris",
     note: "Borde de rivière (rivière des Mille-Îles), plan d'eau navigable. Abrigo para auto (1) + entrada (2). Chimenea a gas. Emménagement 30 días después de la aceptación. Cerca de tren de banlieue y transporte en común." }
 ];
-const COLORS = { condo: "#2563eb", ville: "#dc2626", independiente: "#ea580c" };
-const CATNAME = { condo: "Condo en edificio", ville: "Maison de ville", independiente: "Casa independiente" };
+const COLORS = { condo: "#2563eb", ville: "#dc2626", independiente: "#ea580c", renta: "#16a34a" };
+const CATNAME = { condo: "Condo en edificio", ville: "Maison de ville", independiente: "Casa independiente", renta: "Renta" };
+let DATA = PROPS;
 const money = n => "$" + n.toLocaleString("en-CA");
 const fmt = n => (n === null || n === undefined) ? "—" : n.toLocaleString("en-CA");
 const STATIONS = [
@@ -305,12 +310,17 @@ function pinIcon(p, selected) {
   return L.divIcon({ className: "", iconSize: [size, size], iconAnchor: [size / 2, size / 2],
     html: `<div class="pin${selected ? " sel" : ""}" style="--c:${COLORS[p.cat]}"><i></i><span>${shortPrice(p.price)}</span></div>` });
 }
-PROPS.forEach(p => {
-  const m = L.marker([p.lat, p.lng], { icon: pinIcon(p, false) }).addTo(map);
-  m.bindPopup(`<b>${p.name}</b><br>${CATNAME[p.cat]} · ${p.sector}<br>${money(p.price)}`);
-  m.on("click", () => selectProp(p.id, false));
-  markers[p.id] = m;
-});
+function buildMarkers() {
+  Object.values(markers).forEach(m => map.removeLayer(m));
+  for (const k in markers) delete markers[k];
+  DATA.forEach(p => {
+    const m = L.marker([p.lat, p.lng], { icon: pinIcon(p, false) }).addTo(map);
+    m.bindPopup(`<b>${p.name}</b><br>${CATNAME[p.cat]} · ${p.sector}<br>${money(p.price)}`);
+    m.on("click", () => selectProp(p.id, false));
+    markers[p.id] = m;
+  });
+}
+buildMarkers();
 const transitLayer = L.layerGroup();
 STATIONS.forEach(s => {
   const letter = s[3].includes("Métro") ? "M" : s[3].includes("REM") ? "R" : "T";
@@ -328,7 +338,7 @@ const listEl = document.getElementById("list");
 const fichaEl = document.getElementById("ficha");
 function renderList() {
   listEl.innerHTML = "";
-  PROPS.filter(p => currentFilter === "all" || p.cat === currentFilter).forEach(p => {
+  DATA.filter(p => currentFilter === "all" || p.cat === currentFilter).forEach(p => {
     const d = document.createElement("div");
     d.className = "card" + (p.id === selectedId ? " selected" : "");
     d.innerHTML = `<div class="pinrow"><i class="dot big" style="background:${COLORS[p.cat]}"></i><span class="catname">${CATNAME[p.cat]}</span></div><div class="price">${money(p.price)}${p.priceNote ? " *" : ""}</div><div class="addr">${p.name} — ${p.sector}</div>`;
@@ -342,10 +352,10 @@ function row(label, value) {
 let selectedId = null;
 function selectProp(id, pan) {
   selectedId = id;
-  const p = PROPS.find(x => x.id === id);
+  const p = DATA.find(x => x.id === id);
   // El pin elegido se agranda con anillo de su color y queda al frente;
   // los demás vuelven a su tamaño normal.
-  PROPS.forEach(x => {
+  DATA.forEach(x => {
     markers[x.id].setIcon(pinIcon(x, x.id === id));
     markers[x.id].setZIndexOffset(x.id === id ? 1000 : 0);
   });
@@ -363,7 +373,7 @@ function selectProp(id, pan) {
       ${row("Baños", p.baths)}
       ${row("Habitaciones", p.rooms)}
       ${row("Sup. habitable", p.living ? fmt(p.living) + " pi²" : "—")}
-      ${row("Terreno", fmt(p.lot) + " pi²")}
+      ${row("Terreno", p.lot ? fmt(p.lot) + " pi²" : "—")}
       ${row("Año", p.year)}
       ${row("Impuestos", p.taxes)}
       ${row("Avalúo municipal", p.assessment)}
@@ -380,7 +390,7 @@ document.querySelectorAll(".toolbar button[data-filter]").forEach(b => {
     document.querySelectorAll(".toolbar button[data-filter]").forEach(x => x.classList.remove("active"));
     b.classList.add("active");
     currentFilter = b.dataset.filter;
-    PROPS.forEach(p => {
+    DATA.forEach(p => {
       const show = currentFilter === "all" || p.cat === currentFilter;
       if (show) markers[p.id].addTo(map); else map.removeLayer(markers[p.id]);
     });
@@ -388,11 +398,12 @@ document.querySelectorAll(".toolbar button[data-filter]").forEach(b => {
   };
 });
 document.getElementById("fitBtn").onclick = () => {
-  map.fitBounds(PROPS.map(p => [p.lat, p.lng]), { padding: [40, 40] });
+  map.fitBounds(DATA.map(p => [p.lat, p.lng]), { padding: [40, 40] });
 };
 document.getElementById("metroBtn").onclick = () => { map.setView([45.56, -73.72], 10); };
-const comp = [...PROPS].sort((a, b) => (a.perPi2 ?? 1e9) - (b.perPi2 ?? 1e9));
+let comp = [];
 function renderCompare() {
+  comp = [...DATA].sort((a, b) => (a.perPi2 ?? 1e9) - (b.perPi2 ?? 1e9));
   document.getElementById("compareBody").innerHTML = comp.map(p =>
     `<tr class="${p.id === selectedId ? "selected" : ""}" data-id="${p.id}"><td><i class="dot" style="background:${COLORS[p.cat]}"></i>${p.name} (${p.sector})</td><td>${money(p.price)}</td><td>${p.living ? fmt(p.living) + " pi²" : "—"}</td><td>${p.perPi2 ? "≈ $" + p.perPi2 : "—"}</td><td>${fmt(p.lot)} pi²</td></tr>`
   ).join("");
@@ -407,6 +418,41 @@ function renderCompare() {
 renderCompare();
 renderList();
 selectProp("workman", false);
+// Los datos viven en Propiedades.xlsx (repo). Al cargar, el mapa intenta leerlo;
+// si falla, queda la copia incrustada de arriba como respaldo.
+async function loadExcel() {
+  try {
+    const res = await fetch("Propiedades.xlsx");
+    if (!res.ok) return;
+    const buf = await res.arrayBuffer();
+    const wb = XLSX.read(buf, { type: "array" });
+    const sheet = wb.Sheets["Propiedades"];
+    if (!sheet) return;
+    const rows = XLSX.utils.sheet_to_json(sheet, { defval: null });
+    const catMap = { "Independiente": "independiente", "Maison de ville": "ville", "Condo": "condo", "Renta": "renta" };
+    const props = rows.filter(r => r.id && r.lat != null && r.lng != null).map(r => ({
+      id: String(r.id), name: r.nombre || "", sector: r.sector || "",
+      cat: catMap[r.categoria] || "independiente",
+      lat: +r.lat, lng: +r.lng, price: +r.precio || 0, priceNote: r.nota_precio || "",
+      beds: r.recamaras || "—", baths: r.banos || "—", rooms: r.habitaciones ?? null,
+      living: r.sup_habitable_pi2 ?? null, lot: r.terreno_pi2 ?? null, year: r.ano ?? "—",
+      taxes: r.impuestos || "—", assessment: r.avaluo || "—", welcome: r.taxe_bienvenue || "—",
+      perPi2: r.precio_pi2 ?? null, broker: r.corredor || "", uls: r.uls || "",
+      photos: r.fotos_url || "", photosLabel: r.fotos_etiqueta || "Ver fotos", note: r.nota || ""
+    }));
+    if (!props.length) return;
+    DATA = props;
+    currentFilter = "all";
+    document.querySelectorAll(".toolbar button[data-filter]").forEach(x => x.classList.toggle("active", x.dataset.filter === "all"));
+    buildMarkers();
+    renderList();
+    renderCompare();
+    selectProp(props[0].id, false);
+    const src = document.getElementById("dataSrc");
+    if (src) src.textContent = "Datos: Excel del repo";
+  } catch (e) { /* queda la copia incrustada */ }
+}
+loadExcel();
 </script>
 </body>
 </html>
