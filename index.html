@@ -154,12 +154,28 @@ const PROPS = [
     welcome: "—", perPi2: null,
     broker: "Véronique Plante, RE/MAX 2001 — 514 967-4887", uls: "Centris 20538047",
     photos: "https://www.centris.ca/fr/maison~a-vendre~laval-sainte-rose/20538047", photosLabel: "Ver en Centris",
-    note: "Borde de rivière (rivière des Mille-Îles), plan d'eau navigable. Abrigo para auto (1) + entrada (2). Chimenea a gas. Emménagement 30 días después de la aceptación. Cerca de tren de banlieue y transporte en común." }
+    note: "Borde de rivière (rivière des Mille-Îles), plan d'eau navigable. Abrigo para auto (1) + entrada (2). Chimenea a gas. Emménagement 30 días después de la aceptación. Cerca de tren de banlieue y transporte en común." },
+  { id: "bass6", name: "Bass 6 (Îlot D2)", sector: "Griffintown, Le Sud-Ouest, Montréal", cat: "condo",
+    lat: 45.48776, lng: -73.56515, price: 0, priceNote: "En construcción",
+    beds: "—", baths: "—", rooms: null, living: null, lot: null, year: "—",
+    taxes: "—", assessment: "—",
+    welcome: "—", perPi2: null,
+    broker: "Musto (promotor)", uls: "",
+    photos: "https://www.google.com/maps/search/?api=1&query=201%20Rue%20Richmond%2C%20Montr%C3%A9al%2C%20QC", photosLabel: "Ver en Street View",
+    note: "🏗️ En construcción (foto oct 2026). 8 pisos, 160 unidades (48% estudios, 25% 1 rec., 21% 2 rec., 6% 3 rec.). Promotor Musto; planos PIIA aprobados jun 2024. Lote entre Richmond (oeste), des Bassins (norte), parc du Bassin-à-Bois (este) y canal (sur). Precios y modalidad (venta/renta) por confirmar." },
+  { id: "cluza", name: "Cluza, Appartements sur Bassins", sector: "Griffintown, Le Sud-Ouest, Montréal", cat: "condo",
+    lat: 45.48636, lng: -73.56722, price: 0, priceNote: "En construcción",
+    beds: "—", baths: "—", rooms: null, living: null, lot: null, year: "—",
+    taxes: "—", assessment: "—",
+    welcome: "—", perPi2: null,
+    broker: "Omnia Technologies + Claridge (promotores)", uls: "",
+    photos: "https://www.google.com/maps/search/?api=1&query=1712%20Rue%20des%20Bassins%2C%20Montr%C3%A9al%2C%20QC", photosLabel: "Ver en Street View",
+    note: "🏗️ En construcción desde 2025, entrega prevista 2027. 9 pisos, 286 unidades. Promotores Omnia Technologies + Claridge. Terreno de las antiguas écuries Lucky Luc. Precios y modalidad (venta/renta) por confirmar. Ubicación del pin aproximada sobre rue des Bassins." }
 ];
 const COLORS = { condo: "#2563eb", ville: "#dc2626", independiente: "#ea580c", renta: "#16a34a" };
 const CATNAME = { condo: "Condo en edificio", ville: "Maison de ville", independiente: "Casa independiente", renta: "Renta" };
 let DATA = PROPS;
-const money = n => "$" + n.toLocaleString("en-CA");
+const money = n => n ? "$" + n.toLocaleString("en-CA") : "—";
 const fmt = n => (n === null || n === undefined) ? "—" : n.toLocaleString("en-CA");
 const STATIONS = [
 ["Acadie",45.52322,-73.62375,"Métro"],
@@ -302,6 +318,7 @@ const markers = {};
 let currentFilter = "all";
 
 function shortPrice(n) {
+  if (!n) return "En obra";
   if (n >= 1000000) return "$" + (n / 1000000).toFixed(2).replace(/\.?0+$/, "") + "M";
   return "$" + Math.round(n / 1000) + "k";
 }
@@ -405,7 +422,7 @@ let comp = [];
 function renderCompare() {
   comp = [...DATA].sort((a, b) => (a.perPi2 ?? 1e9) - (b.perPi2 ?? 1e9));
   document.getElementById("compareBody").innerHTML = comp.map(p =>
-    `<tr class="${p.id === selectedId ? "selected" : ""}" data-id="${p.id}"><td><i class="dot" style="background:${COLORS[p.cat]}"></i>${p.name} (${p.sector})</td><td>${money(p.price)}</td><td>${p.living ? fmt(p.living) + " pi²" : "—"}</td><td>${p.perPi2 ? "≈ $" + p.perPi2 : "—"}</td><td>${fmt(p.lot)} pi²</td></tr>`
+    `<tr class="${p.id === selectedId ? "selected" : ""}" data-id="${p.id}"><td><i class="dot" style="background:${COLORS[p.cat]}"></i>${p.name} (${p.sector})</td><td>${money(p.price)}</td><td>${p.living ? fmt(p.living) + " pi²" : "—"}</td><td>${p.perPi2 ? "≈ $" + p.perPi2 : "—"}</td><td>${p.lot ? fmt(p.lot) + " pi²" : "—"}</td></tr>`
   ).join("");
   document.querySelectorAll("#compareBody tr").forEach(tr => {
     tr.onclick = () => {
